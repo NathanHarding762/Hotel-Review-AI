@@ -12,7 +12,18 @@ dist
 dist-ssr
 *.local
 
+#python stuff
+__pycache__/
+*.pyc
+.venv/
+env/
+venv/
+
+
 # Editor directories and files
+node_modules/
+dist/
+build/
 .vscode/*
 !.vscode/extensions.json
 .idea
