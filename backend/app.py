@@ -25,7 +25,7 @@ print("Model and tokenizer loaded!")
 # 2. Flask setup
 # ----------------------------
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=["http://10.200.67.161:8081"])
 
 # ----------------------------
 # 3. API endpoint
@@ -67,4 +67,5 @@ def analyze_review():
 # 4. Run Flask
 # ----------------------------
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000)
+
