@@ -1,15 +1,18 @@
+// frontend/components/ReviewAnalyzer.tsx
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { StarRating } from "./StarRating";
 import { Loader2, MessageSquare, TrendingUp, AlertCircle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface AnalysisResult {
-  rating: number;
+  score: number;
   sentiment: "positive" | "negative" | "neutral";
-  confidence: number;
+  issues: string[];
+  response: string;
 }
 
 export const ReviewAnalyzer = () => {
@@ -40,14 +43,15 @@ export const ReviewAnalyzer = () => {
 
       const data = await response.json();
       setResult({
-        rating: data.score,
+        score: data.score,
         sentiment: data.sentiment,
-        confidence: data.confidence ?? 0.9,
+        issues: data.issues ?? [],
+        response: data.response ?? "",
       });
 
       toast({
         title: "Analysis Complete",
-        description: `Sentiment: ${data.sentiment} (${data.score.toFixed(1)}/5)`,
+        description: `Sentiment: ${data.sentiment}`,
       });
     } catch (error) {
       console.error(error);
@@ -58,17 +62,6 @@ export const ReviewAnalyzer = () => {
       });
     } finally {
       setIsAnalyzing(false);
-    }
-  };
-
-  const getSentimentDescription = (sentiment: string, rating: number) => {
-    switch (sentiment) {
-      case "positive":
-        return `This review expresses positive sentiment about the hotel experience. Rating: ${rating.toFixed(1)}/5`;
-      case "negative":
-        return `This review indicates negative sentiment about the hotel experience. Rating: ${rating.toFixed(1)}/5`;
-      default:
-        return `This review shows neutral sentiment about the hotel experience. Rating: ${rating.toFixed(1)}/5`;
     }
   };
 
@@ -135,24 +128,23 @@ export const ReviewAnalyzer = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-secondary/30 to-hotel-gold/20 rounded-lg border">
-              <div>
-                <h3 className="text-lg font-semibold mb-2">Overall Rating</h3>
-                <StarRating rating={result.rating} size="lg" />
-              </div>
-              <div className="text-right">
-                <div className="text-sm text-muted-foreground mb-1">Confidence</div>
-                <div className="text-2xl font-bold text-primary">
-                  {(result.confidence * 100).toFixed(0)}%
-                </div>
-              </div>
+            {/* Rating */}
+            <div className="p-6 bg-gradient-to-r from-secondary/30 to-hotel-gold/20 rounded-lg border">
+              <h3 className="text-lg font-semibold mb-2">Overall Rating</h3>
+              <StarRating rating={result.score} size="lg" />
             </div>
 
+            {/* Sentiment & Issues */}
             <div className="p-6 bg-gradient-to-r from-background to-muted/50 rounded-lg border">
               <h3 className="text-lg font-semibold mb-3">Analysis Summary</h3>
-              <p className="text-muted-foreground leading-relaxed">
-                {getSentimentDescription(result.sentiment, result.rating)}
-              </p>
+              <p className="text-muted-foreground leading-relaxed mb-2">{result.response}</p>
+              {result.issues.length > 0 && (
+                <ul className="list-disc list-inside text-sm text-foreground">
+                  {result.issues.map((issue) => (
+                    <li key={issue}>{issue}</li>
+                  ))}
+                </ul>
+              )}
               <div className="mt-4 flex items-center gap-4 text-sm">
                 <div className={`px-3 py-1 rounded-full font-medium ${
                   result.sentiment === "positive" ? "bg-sentiment-positive/10 text-sentiment-positive border border-sentiment-positive/20" :
