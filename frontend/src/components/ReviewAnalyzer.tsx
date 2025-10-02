@@ -8,6 +8,9 @@ import { StarRating } from "./StarRating";
 import { Loader2, MessageSquare, TrendingUp, AlertCircle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
+const apiUrl = import.meta.env.VITE_API_URL;
+
+
 interface AnalysisResult {
   score: number;
   sentiment: "positive" | "negative" | "neutral";
