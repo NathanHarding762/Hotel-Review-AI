@@ -1,0 +1,26 @@
+[
+  {
+    "review": "the food wasnt good\n",
+    "issues": [
+      "food"
+    ]
+  },
+  {
+    "review": "mixed food ",
+    "issues": [
+      "food"
+    ]
+  },
+  {
+    "review": "mixed food ",
+    "issues": [
+      "food"
+    ]
+  },
+  {
+    "review": "text food bad ",
+    "issues": [
+      "food"
+    ]
+  }
+]
