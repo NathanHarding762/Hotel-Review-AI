@@ -8,15 +8,20 @@ import pickle
 import numpy as np
 import json
 import os
-
+import traceback
 
 # ----------------------------
 # 1. Load model & tokenizer once at startup
 # ----------------------------
 print("Loading model and tokenizer...")
-model = tf.keras.models.load_model("hotel_model.h5")
-with open("tokenizer.pkl", "rb") as f:
-    tokenizer = pickle.load(f)
+try:
+    model = tf.keras.models.load_model("hotel_model.h5")
+    with open("tokenizer.pkl", "rb") as f:
+        tokenizer = pickle.load(f)
+except Exception as e:
+    print("Error loading model/tokenizer:", e)
+    traceback.print_exc()
+    raise e
 
 max_length = 300
 padding_type = 'post'
@@ -40,8 +45,11 @@ if not os.path.exists(ISSUE_FILE):
 def save_issues(review, issues):
     if not issues:
         return
-    with open(ISSUE_FILE, "r") as f:
-        data = json.load(f)
+    try:
+        with open(ISSUE_FILE, "r") as f:
+            data = json.load(f)
+    except Exception:
+        data = []
     data.append({"review": review, "issues": issues})
     with open(ISSUE_FILE, "w") as f:
         json.dump(data, f, indent=2)
@@ -51,77 +59,89 @@ def save_issues(review, issues):
 # ----------------------------
 @app.route("/review", methods=["POST"])
 def analyze_review():
-    data = request.get_json()
-    user_review = data.get("review", "")
+    try:
+        data = request.get_json()
+        print("Received request:", data)
 
-    if not user_review:
-        return jsonify({"error": "No review text provided"}), 400
+        user_review = data.get("review", "")
+        if not user_review:
+            return jsonify({"error": "No review text provided"}), 400
 
-    # Tokenize + pad
-    sequences = tokenizer.texts_to_sequences([user_review])
-    padded_input = pad_sequences(sequences, maxlen=max_length,
-                                 padding=padding_type, truncating=trunc_type)
+        # Tokenize + pad
+        sequences = tokenizer.texts_to_sequences([user_review])
+        padded_input = pad_sequences(sequences, maxlen=max_length,
+                                     padding=padding_type, truncating=trunc_type)
 
-    # Predict sentiment
-    result = model.predict(padded_input, verbose=False)[0][0]
+        # Predict sentiment
+        result = model.predict(padded_input, verbose=False)[0][0]
 
-    if result > 0.8:
-        sentiment = "positive"
-    elif result < 0.8 and result > 0.35:
-        sentiment = "neutral"
-    else:
-        sentiment = "negative"
-
-    score = float(result * 5)
-
-    # ----------------------------
-    # Rule-based issue detection
-    # ----------------------------
-    issues = []
-    review_lower = user_review.lower()
-
-    if any(word in review_lower for word in ["dirty","smelly","gross","unclean","messy","shabby"]):
-        issues.append("cleanliness")
-    if any(word in review_lower for word in ["rude", "unhelpful", "staff"]):
-        issues.append("staff")
-    if any(word in review_lower for word in ["expensive", "overpriced", "cost"]):
-        issues.append("price")
-    if any(word in review_lower for word in ["food", "breakfast", "dinner", "restaurant"]):
-        issues.append("food")
-    if any(word in review_lower for word in ["location", "distance", "far", "close"]):
-        issues.append("location")
-
-    save_issues(user_review, issues)
-
-    # Response message
-    if sentiment == "negative":
-        if issues:
-            response = f"We’re sorry to hear about the {', '.join(issues)}. Your feedback helps us improve."
+        if result > 0.8:
+            sentiment = "positive"
+        elif result < 0.8 and result > 0.35:
+            sentiment = "neutral"
         else:
-            response = "We’re sorry your experience wasn’t great. Your feedback helps us improve."
-    elif sentiment == "positive":
-        response = "We’re so glad you enjoyed your stay! Thank you for your kind words."
-    else:
-        response = "Thanks for your feedback. We’ll keep working to improve."
+            sentiment = "negative"
 
-    return jsonify({
-        "score": score,
-        "sentiment": sentiment,
-        "issues": issues,
-        "response": response,
-    })
+        score = float(result * 5)
+
+        # Rule-based issue detection
+        issues = []
+        review_lower = user_review.lower()
+
+        if any(word in review_lower for word in ["dirty","smelly","gross","unclean","messy","shabby"]):
+            issues.append("cleanliness")
+        if any(word in review_lower for word in ["rude", "unhelpful", "staff"]):
+            issues.append("staff")
+        if any(word in review_lower for word in ["expensive", "overpriced", "cost"]):
+            issues.append("price")
+        if any(word in review_lower for word in ["food", "breakfast", "dinner", "restaurant"]):
+            issues.append("food")
+        if any(word in review_lower for word in ["location", "distance", "far", "close"]):
+            issues.append("location")
+
+        save_issues(user_review, issues)
+
+        # Response message
+        if sentiment == "negative":
+            response = f"We’re sorry to hear about the {', '.join(issues)}. Your feedback helps us improve." if issues else "We’re sorry your experience wasn’t great. Your feedback helps us improve."
+        elif sentiment == "positive":
+            response = "We’re so glad you enjoyed your stay! Thank you for your kind words."
+        else:
+            response = "Thanks for your feedback. We’ll keep working to improve."
+
+        resp = {
+            "score": score,
+            "sentiment": sentiment,
+            "issues": issues,
+            "response": response,
+        }
+
+        print("Sending response:", resp)
+        return jsonify(resp)
+
+    except Exception as e:
+        print("Error processing request:", e)
+        traceback.print_exc()
+        return jsonify({"error": "Internal server error"}), 500
 
 # ----------------------------
 # 5. GET endpoint: view all stored issues
 # ----------------------------
 @app.route("/issues", methods=["GET"])
 def get_issues():
-    with open(ISSUE_FILE, "r") as f:
-        data = json.load(f)
-    return jsonify(data)
+    try:
+        with open(ISSUE_FILE, "r") as f:
+            data = json.load(f)
+        print("Returning stored issues")
+        return jsonify(data)
+    except Exception as e:
+        print("Error reading issues file:", e)
+        traceback.print_exc()
+        return jsonify({"error": "Could not read issues"}), 500
 
 # ----------------------------
 # 6. Run Flask
 # ----------------------------
+# Render will use gunicorn, so no need to call app.run()
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=True)
